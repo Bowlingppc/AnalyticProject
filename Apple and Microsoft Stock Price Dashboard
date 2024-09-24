@@ -1,0 +1,173 @@
+---
+title: "Apple and Microsoft Stock Price Dashboard"
+author: "Phiphat Chayasil"
+date: '2024-09-22'
+output: html_document
+---
+
+<style type="text/css">
+body{/* Normal */ font-size: 16px;}
+td {/* Table  */ font-size: 12px;}
+h1.title{font-size: 30px; color: Black;}
+h3.subtitle{font-size: 24px; color: Black;}
+h1 { /* Header 1 */ font-size: 28px; color: DarkBlue;}
+h2 { /* Header 2 */ font-size: 24px; color: DarkBlue;}
+h3 { /* Header 3 */ font-size: 20px; color: DarkBlue;}
+code.r{ /* Code block */ font-size: 14px;}
+pre{/* Code block - determines code spacing between lines */ font-size: 14px;}
+table {
+  font-family: arial, sans-serif;
+  border-collapse: collapse;
+  width: 80%;
+}
+th {
+  border: 1px solid #dddddd;
+  text-align: left;
+  padding: 8px;
+}
+
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(quantmod)
+library(ggplot2)
+library(lubridate)
+```
+
+
+
+---
+
+# Statement of Purpose {-}
+
+This project is to demonstrate how to use quantmod, ggplot2, and lubridate from R library to pull Microsoft and Apple stock prices over the past 3 years. The analysis aims to visualize stock price trends, explore patterns, and compare the performance of these two tech giants over time.
+
+# Objective {-}
+
+- Retrieve and visualize historical stock price data for Microsoft and Apple.
+- Identify trends and performance patterns for each stock.
+- Compare the two stocks using statistical analysis and data visualization.
+- Demonstrate proficiency in R libraries for financial data analysis.
+
+# Methods and Tools {-}
+The following R libraries and techniques will be employed:
+
+- quantmod: Download and manage stock data.
+- lubridate: Work with date and time data.
+- ggplot2: Visualize stock price trends.
+
+# Expected Outcome
+
+We expect to produce:
+
+- Clear visualizations of Microsoft and Apple stock price trends.
+- A demonstration of key R programming skills in data analysis and visualization.
+
+# Data Collection
+
+By using quantmod library, we can use getSymbols() function to get the adjusted stock prices for Microsoft and Apple over the past 3 years from the date the code is run. The data type from using getSymbol() by default is xts object.
+
+```{r}
+# Load stock data for Microsoft from the last 3 years from the date the code is run
+msft.data = getSymbols("MSFT", auto.assign=FALSE,
+                        from = now() - years(3), to=now())
+
+# Load stock data for Apple from the last 3 years from the date the code is run
+aapl.data = getSymbols("AAPL", auto.assign=FALSE,
+                       from = now() - years(3), to=now())
+```
+
+# Data preparation {-}
+By using quantmod library, getSymbols() omits missing data and pre-process it to a certain extent, so the data does not need to be cleaned any further.
+As a result, the only step left to take her is to extract the adjusted closing prices for both stocks
+
+```{R}
+# Extract the adjusted closing prices
+msft.prices = msft.data$MSFT.Adjusted
+dates = index(msft.prices)
+msft.prices = as.numeric(msft.prices)
+dates = index(msft.prices)
+# Extract the adjusted closing prices
+aapl.prices = aapl.data$AAPL.Adjusted
+aapl.prices <- as.numeric(aapl.prices)
+# Combine both stock prices into a data frame
+prices_combined = data.frame(cbind(aapl.prices, msft.prices))
+
+```
+
+
+Next, we can compute the arithmetic return with 
+\begin{equation*}
+r(t_0, t_1) = \ln\left(\frac{P_{t_1}}{P_{t_0}}\right)
+\end{equation*}
+
+```{R}
+# Create a variable with Microsoft arithmetic daily return
+data.length = length(msft.prices)
+msft.returns.daily = (msft.prices[2:data.length] - msft.prices[1:(data.length - 1)]) / msft.prices[1:(data.length - 1)]
+
+# Create a variable with Apple arithmetic daily return
+data.length = length(aapl.prices)
+aapl.returns.daily = (aapl.prices[2:data.length] - aapl.prices[1:(data.length - 1)]) / aapl.prices[1:(data.length - 1)]
+
+# Combine both returns into a data frame
+returns_combined = data.frame(cbind(aapl.returns.daily, msft.returns.daily))
+```
+
+
+
+
+# Data Visualization
+Now we will make a visualizations on Microsoft and Stock prices, starting by plotting the prices in the past 3 years.
+
+```{r}
+ggplot(data = prices_combined) + 
+  geom_line(mapping = aes(x = dates, y = aapl.prices, color = "Apple")) + 
+  geom_line(mapping = aes(x = dates, y = msft.prices, color = "Microsoft")) +
+  labs(y= "Adjusted Closing Price", x = "Date", title = 'Microsoft and Apple Daily Adjusted Price') +
+  scale_color_manual(values = c("Apple" = "grey", "Microsoft" = "green")) + theme_minimal() 
+```
+
+```{r}
+ggplot(data = prices_combined) + 
+  geom_line(mapping = aes(x = dates <- dates, y = log(aapl.prices), color = "Apple")) + 
+  geom_line(mapping = aes(x = dates <- dates, y = log(msft.prices), color = "Microsoft")) +
+  labs(y= "Log Adjusted Closing Price", x = "Date", title = 'Microsoft and Apple Daily Log Adjusted Price') +
+  scale_color_manual(values = c("Apple" = "grey", "Microsoft" = "green")) + theme_minimal()
+```
+
+Next, we plot the arithmetic daily return for both stocks with histogram
+
+```{r}
+date.returns = dates[-1]
+ggplot(data = returns_combined) + 
+  geom_line(mapping = aes(x = date.returns, y = log(aapl.returns.daily)), color = "grey") + labs(y= "Daily Atirthmetic Returns", x = "Date", title = 'Apple Daily Atirthmetic Returns')
+ggplot(data = returns_combined) + 
+  geom_line(mapping = aes(x = date.returns, y = log(msft.returns.daily)), color = "green") + labs(y= "Daily Atirthmetic Returns", x = "Date", title = 'Microsoft Daily Atirthmetic Returns')
+```
+
+
+# Statistical Analysis {-}
+
+For this, we may use the built-in functions such as mean(), median(), sd(), min(), max(), quantile(), and cor() to find simple statistic basis for both stocks
+
+```{r}
+# Statistical data for Microsoft stock price over the past 3 years
+(msft_stat = cbind('mean' = mean(msft.prices), 'median' = median(msft.prices), 'stdv' = sd(msft.prices), 'min' = min(msft.prices), 'max' = max(msft.prices)))
+quantile(msft.prices)
+
+
+# Statistical data for Apple stock price over the past 3 years
+(aapl_stat = cbind('mean' = mean(aapl.prices), 'median' = median(aapl.prices), 'stdv' = sd(aapl.prices), 'min' = min(aapl.prices), 'max' = max(aapl.prices)))
+quantile(aapl.prices)
+
+
+# The corelation between Microsoft and Apple stock prices over the past 3 years. It the number is getting close to 1, it indicates a high corelation between the two. It indicates the opposite if the number is getting close to -1.
+cor(aapl.prices, msft.prices)
+```
+
+
+# Conclusion {-}
+
+By utilizing the quantmod, ggplot2, and lubridate libraries in R, we can create a comprehensive dashboard for Microsoft and Apple stock prices, allowing for real-time tracking of their performance. Through this analysis, we observed key trends that could inform investment decisions. Future expansions could include a diversified portfolio containing both stocks to analyze balance and actual rate of return, as well as additional features such as risk assessment and advanced analytics. This dashboard not only aids in monitoring stock performance but also serves as a valuable tool for developing informed investment strategies.
